@@ -1,54 +1,50 @@
-#include <stdlib.h>
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+
 #include <netinet/in.h>
-#include <string.h>
-
-#define MAXLINE 4096 /*max text line length*/
-#define SERV_PORT 3000 /*port*/
-#define LISTENQ 8 /*maximum number of client connections */
-
-int main (int argc, char **argv)
+#include <netdb.h>
+#define SERVER_PORT 5432
+#define MAX_PENDING 5
+#define MAX_LINE 256
+int
+main()
 {
- int listenfd, connfd, n;
- socklen_t clilen;
- char buf[MAXLINE];
- struct sockaddr_in cliaddr, servaddr;
+struct sockaddr_in sin;
+char buf[MAX_LINE];
+int buf_len,addr_len;
+int s, new_s;
+/* build address data structure */
+bzero((char *)&sin, sizeof(sin));
+sin.sin_family = AF_INET;
+sin.sin_addr.s_addr = INADDR_ANY;
+sin.sin_port = htons(SERVER_PORT);
+/* setup passive open */
+if ((s = socket(PF_INET, SOCK_DGRAM, 0)) < 0) {
+perror("simplex-talk: socket");
+exit(1);
+}
+if ((bind(s, (struct sockaddr *)&sin, sizeof(sin))) < 0) {
+perror("simplex-talk: bind");
+exit(1);
+}
+//listen(s, MAX_PENDING);
+/* wait for connection, then receive and print text */
+// while(1) {
+// if ((new_s = accept(s, (struct sockaddr *)&sin, &len)) < 0) {
+// perror("simplex-talk: accept");
+// exit(1);
+// }
+// while (len = recv(new_s, buf, sizeof(buf), 0))
+// fputs(buf, stdout);
+// close(new_s);
+// }
 
- //creation of the socket
- listenfd = socket (AF_INET, SOCK_STREAM, 0);
-
- //preparation of the socket address
- servaddr.sin_family = AF_INET;
- servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
- servaddr.sin_port = htons(SERV_PORT);
-
- bind (listenfd, (struct sockaddr *) &servaddr, sizeof(servaddr));
-
- listen (listenfd, LISTENQ);
-
- printf("%s\n","Server running...waiting for connections.");
-
- for ( ; ; ) {
-
-  clilen = sizeof(cliaddr);
-  connfd = accept (listenfd, (struct sockaddr *) &cliaddr, &clilen);
-  printf("%s\n","Received request...");
-
-  while ( (n = recv(connfd, buf, MAXLINE,0)) > 0)  {
-   printf("%s","String received from and resent to the client:");
-   puts(buf);
-   send(connfd, buf, n, 0);
+for(;;){
+  buf_len = recvfrom(s,buf,sizeof(buf),0,(struct sockaddr *)&sin,&addr_len);
+  if(buf_len){
+      buf[buf_len]=0;
+      printf("Incomming message: %s\n",buf);
   }
-
- if (n < 0) {
-  perror("Read error");
-  exit(1);
- }
- close(connfd);
-
- }
- //close listening socket
- close (listenfd);
+}
 }
